@@ -21,7 +21,8 @@ trait ListingCriteriaRules
     {
         return [
             'property_type' => ['nullable', new Enum(PropertyType::class)],
-            'max_price' => ['nullable', 'integer', 'min:0'],
+            // Upper bound is the unsignedInteger column it's stored in.
+            'max_price' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
             'min_bedrooms' => ['nullable', 'integer', 'min:0', 'max:20'],
             'region' => ['nullable', 'string', 'max:100'],
         ];

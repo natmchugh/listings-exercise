@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Enums\ListingStatus;
 use App\Enums\PropertyType;
+use App\Listeners\CreateAlertsForMatchingSearches;
 use App\Models\Alert;
 use App\Models\Branch;
 use App\Models\Listing;
 use App\Models\SavedSearch;
 use App\Models\User;
+use Illuminate\Events\CallQueuedListener;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -85,6 +88,19 @@ class ListingAlertTest extends TestCase
         $this->assertSame($listing->id, $alert->listing_id);
         $this->assertSame($search->id, $alert->saved_search_id);
         $this->assertNull($alert->read_at);
+    }
+
+    public function test_the_alert_job_is_dropped_if_the_listing_is_deleted_before_it_runs(): void
+    {
+        Queue::fake();
+
+        $this->goLive($this->draftListing());
+
+        Queue::assertPushed(
+            CallQueuedListener::class,
+            fn (CallQueuedListener $job) => $job->class === CreateAlertsForMatchingSearches::class
+                && $job->deleteWhenMissingModels === true,
+        );
     }
 
     public function test_a_listing_created_live_alerts_matching_users(): void
@@ -305,5 +321,42 @@ class ListingAlertTest extends TestCase
     {
         $this->artisan('listings:publish', ['reference' => 'STR-NOPE'])
             ->assertFailed();
+    }
+
+    public function test_draft_command_creates_a_draft_listing(): void
+    {
+        $this->search();
+
+        $this->artisan('listings:draft')->assertSuccessful();
+
+        $listing = Listing::query()->sole();
+        $this->assertSame(ListingStatus::Draft, $listing->status);
+        $this->assertSame($this->leeds->id, $listing->branch_id);
+        $this->assertDatabaseCount('branches', 1);
+        $this->assertDatabaseCount('alerts', 0);
+    }
+
+    public function test_draft_command_fails_when_there_are_no_branches(): void
+    {
+        $this->leeds->delete();
+
+        $this->artisan('listings:draft')->assertFailed();
+
+        $this->assertDatabaseCount('listings', 0);
+    }
+
+    /**
+     * The manual testing loop, end to end.
+     */
+    public function test_drafting_then_publishing_alerts_a_matching_search(): void
+    {
+        $this->search();
+
+        $this->artisan('listings:draft')->assertSuccessful();
+        $reference = Listing::query()->sole()->reference;
+
+        $this->artisan('listings:publish', ['reference' => $reference])->assertSuccessful();
+
+        $this->assertSame(1, $this->user->alerts()->count());
     }
 }

@@ -1,22 +1,11 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '../../components/AppLayout.vue';
-import { formatPrice } from '../../format.js';
+import { searchSummary } from '../../format.js';
 
 defineProps({
     savedSearches: { type: Array, required: true },
 });
-
-function summary(search) {
-    return [
-        search.property_type_label ?? 'Any type',
-        search.max_price !== null ? `up to ${formatPrice(search.max_price)}` : null,
-        search.min_bedrooms !== null ? `${search.min_bedrooms}+ beds` : null,
-        search.region,
-    ]
-        .filter(Boolean)
-        .join(' · ');
-}
 
 function resultsUrl(search) {
     return `/?${new URLSearchParams(search.criteria)}`;
@@ -37,7 +26,7 @@ function destroy(search) {
                 :key="search.id"
                 class="flex flex-wrap items-center justify-between gap-3 p-4"
             >
-                <span class="font-medium">{{ summary(search) }}</span>
+                <span class="font-medium">{{ searchSummary(search) }}</span>
 
                 <span class="flex items-center gap-4 text-sm">
                     <Link :href="resultsUrl(search)" class="text-slate-700 underline-offset-2 hover:underline">

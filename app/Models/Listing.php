@@ -118,7 +118,8 @@ class Listing extends Model
     /**
      * Narrow to listings meeting a set of search criteria: the single definition
      * of a "match", shared by the index filters and saved searches. Absent or
-     * blank criteria don't constrain the search. SavedSearch::matchingListing()
+     * null criteria don't constrain the search; blank form fields already
+     * arrive as null (ConvertEmptyStringsToNull), so '' is not expected here. SavedSearch::matchingListing()
      * is its inverse, used for alerting; keep the two in step.
      *
      * @param  Builder<Listing>  $query
@@ -126,8 +127,6 @@ class Listing extends Model
      */
     public function scopeMatching(Builder $query, array $criteria): void
     {
-        $criteria = array_filter($criteria, fn ($value) => $value !== null && $value !== '');
-
         if (isset($criteria['property_type'])) {
             $query->where('property_type', $criteria['property_type']);
         }

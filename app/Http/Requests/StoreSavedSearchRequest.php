@@ -58,6 +58,12 @@ class StoreSavedSearchRequest extends FormRequest
                     return;
                 }
 
+                // The cap and the duplicate check both read and then insert, so
+                // two saves at the same moment can both pass, leaving a
+                // duplicate or a 21st search. That's accepted here: it needs a
+                // double submit, and the only cost is a redundant row. Closing
+                // it means moving both checks next to the insert, in one
+                // transaction that locks the user row first.
                 /** @var User $user */
                 $user = $this->user();
                 $searches = $user->savedSearches();
@@ -83,22 +89,16 @@ class StoreSavedSearchRequest extends FormRequest
     }
 
     /**
-     * The criteria that were given, cast to what's stored.
+     * The criteria that were given, as validated. Types are left to the
+     * SavedSearch casts, so a new criterion only needs a rule and a cast.
      *
-     * @return array{property_type?: string, max_price?: int, min_bedrooms?: int, region?: string}
+     * @return array<string, mixed>
      */
     public function criteria(): array
     {
-        $criteria = [];
-
-        foreach (SavedSearch::CRITERIA as $key) {
-            if ($this->filled($key)) {
-                $criteria[$key] = in_array($key, ['max_price', 'min_bedrooms'], true)
-                    ? $this->integer($key)
-                    : $this->string($key)->toString();
-            }
-        }
-
-        return $criteria;
+        return array_filter(
+            $this->safe()->only(SavedSearch::CRITERIA),
+            fn (mixed $value) => $value !== null,
+        );
     }
 }

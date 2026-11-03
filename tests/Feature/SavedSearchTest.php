@@ -89,6 +89,7 @@ class SavedSearchTest extends TestCase
             'unknown region' => [['region' => 'Atlantis'], 'region'],
             'unknown property type' => [['property_type' => 'castle'], 'property_type'],
             'negative price' => [['max_price' => '-1'], 'max_price'],
+            'price beyond the column' => [['max_price' => '4294967296'], 'max_price'],
         ];
     }
 
