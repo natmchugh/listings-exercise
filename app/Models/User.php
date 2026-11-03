@@ -38,4 +38,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(SavedSearch::class);
     }
+
+    /**
+     * @return HasMany<Alert, $this>
+     */
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(Alert::class);
+    }
 }

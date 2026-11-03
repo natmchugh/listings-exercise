@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PropertyType;
 use Database\Factories\SavedSearchFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -62,6 +63,22 @@ class SavedSearch extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Searches that the given listing satisfies: the inverse of
+     * Listing::matching(), with a null criterion meaning "any". The two must
+     * agree, which a test checks; change them together.
+     *
+     * @param  Builder<SavedSearch>  $query
+     */
+    public function scopeMatchingListing(Builder $query, Listing $listing): void
+    {
+        $query
+            ->where(fn (Builder $q) => $q->whereNull('max_price')->orWhere('max_price', '>=', $listing->price))
+            ->where(fn (Builder $q) => $q->whereNull('min_bedrooms')->orWhere('min_bedrooms', '<=', $listing->bedrooms))
+            ->where(fn (Builder $q) => $q->whereNull('property_type')->orWhere('property_type', $listing->property_type->value))
+            ->where(fn (Builder $q) => $q->whereNull('region')->orWhere('region', $listing->branch->region));
     }
 
     /**

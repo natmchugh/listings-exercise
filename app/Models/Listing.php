@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Enums\ListingStatus;
 use App\Enums\PropertyType;
+use App\Events\ListingWentLive;
 use Database\Factories\ListingFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -51,6 +53,28 @@ class Listing extends Model
     ];
 
     /**
+     * Announce a listing coming onto the market, however the save happened.
+     * Bulk query-builder updates skip model events, so they won't announce.
+     */
+    protected static function booted(): void
+    {
+        // Separate hooks rather than one "saved" hook checking
+        // wasRecentlyCreated: that flag stays true for the instance's lifetime,
+        // so every later edit would look like a fresh listing.
+        static::created(function (Listing $listing) {
+            if ($listing->status === ListingStatus::Live) {
+                ListingWentLive::dispatch($listing);
+            }
+        });
+
+        static::updated(function (Listing $listing) {
+            if ($listing->wasChanged('status') && $listing->status === ListingStatus::Live) {
+                ListingWentLive::dispatch($listing);
+            }
+        });
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -74,6 +98,14 @@ class Listing extends Model
     }
 
     /**
+     * @return HasMany<Alert, $this>
+     */
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(Alert::class);
+    }
+
+    /**
      * Only listings that are currently on the market.
      *
      * @param  Builder<Listing>  $query
@@ -86,7 +118,8 @@ class Listing extends Model
     /**
      * Narrow to listings meeting a set of search criteria: the single definition
      * of a "match", shared by the index filters and saved searches. Absent or
-     * blank criteria don't constrain the search.
+     * blank criteria don't constrain the search. SavedSearch::matchingListing()
+     * is its inverse, used for alerting; keep the two in step.
      *
      * @param  Builder<Listing>  $query
      * @param  array{property_type?: string|null, max_price?: int|string|null, min_bedrooms?: int|string|null, region?: string|null}  $criteria
