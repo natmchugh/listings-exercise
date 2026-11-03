@@ -82,4 +82,36 @@ class Listing extends Model
     {
         $query->where('status', ListingStatus::Live);
     }
+
+    /**
+     * Narrow to listings meeting a set of search criteria: the single definition
+     * of a "match", shared by the index filters and saved searches. Absent or
+     * blank criteria don't constrain the search.
+     *
+     * @param  Builder<Listing>  $query
+     * @param  array{property_type?: string|null, max_price?: int|string|null, min_bedrooms?: int|string|null, region?: string|null}  $criteria
+     */
+    public function scopeMatching(Builder $query, array $criteria): void
+    {
+        $criteria = array_filter($criteria, fn ($value) => $value !== null && $value !== '');
+
+        if (isset($criteria['property_type'])) {
+            $query->where('property_type', $criteria['property_type']);
+        }
+
+        if (isset($criteria['max_price'])) {
+            $query->where('price', '<=', (int) $criteria['max_price']);
+        }
+
+        if (isset($criteria['min_bedrooms'])) {
+            $query->where('bedrooms', '>=', (int) $criteria['min_bedrooms']);
+        }
+
+        if (isset($criteria['region'])) {
+            $region = $criteria['region'];
+            $query->whereHas('branch', function ($branchQuery) use ($region) {
+                $branchQuery->where('region', $region);
+            });
+        }
+    }
 }
