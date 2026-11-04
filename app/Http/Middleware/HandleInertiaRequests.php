@@ -40,6 +40,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user()?->only('id', 'name', 'email'),
             ],
+            // Lazy, so it's only counted when a response is actually rendered.
+            // On the alerts page that happens after the page is marked read.
+            'unreadAlertsCount' => fn () => $request->user()?->alerts()->whereNull('read_at')->count() ?? 0,
         ];
     }
 }

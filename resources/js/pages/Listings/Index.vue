@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AppLayout from '../../components/AppLayout.vue';
 import ListingCard from '../../components/ListingCard.vue';
@@ -41,6 +41,24 @@ function search() {
     });
 }
 
+// Saves the search that's applied (the query string), not unsubmitted edits in
+// the form, so what's saved is what the user is looking at.
+const hasAppliedFilters = computed(() =>
+    Object.values(props.filters).some((value) => value !== '' && value !== null),
+);
+const saving = ref(false);
+const saveError = ref(null);
+
+function saveSearch() {
+    saveError.value = null;
+
+    router.post('/saved-searches', props.filters, {
+        onStart: () => (saving.value = true),
+        onFinish: () => (saving.value = false),
+        onError: (errors) => (saveError.value = Object.values(errors)[0] ?? null),
+    });
+}
+
 function reset() {
     form.value = { property_type: '', region: '', min_bedrooms: '', max_price: '' };
     search();
@@ -60,10 +78,24 @@ function reset() {
             @reset="reset"
         />
 
-        <p class="mb-4 text-sm text-slate-500" aria-live="polite">
-            <span v-if="processing">Loading…</span>
-            <span v-else>{{ listings.meta.total }} listing(s) found</span>
-        </p>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-slate-500" aria-live="polite">
+                <span v-if="processing">Loading…</span>
+                <span v-else>{{ listings.meta.total }} listing(s) found</span>
+            </p>
+
+            <button
+                v-if="hasAppliedFilters"
+                type="button"
+                :disabled="saving"
+                class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-900 disabled:opacity-50"
+                @click="saveSearch"
+            >
+                Save this search
+            </button>
+        </div>
+
+        <p v-if="saveError" class="mb-4 text-sm text-red-600" role="alert">{{ saveError }}</p>
 
         <div
             v-if="listings.data.length"

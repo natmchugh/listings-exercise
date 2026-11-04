@@ -15,3 +15,14 @@ export function formatDate(iso) {
 
     return new Intl.DateTimeFormat('en-GB', { dateStyle: 'long' }).format(new Date(iso));
 }
+
+export function searchSummary(search) {
+    return [
+        search.property_type_label ?? 'Any type',
+        search.max_price !== null ? `up to ${formatPrice(search.max_price)}` : null,
+        search.min_bedrooms !== null ? `${search.min_bedrooms}+ beds` : null,
+        search.region,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+}
